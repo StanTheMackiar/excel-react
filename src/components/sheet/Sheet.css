@@ -1,0 +1,31 @@
+.sheet {
+  padding: 20px;
+  width: 100%;
+  background-color: white;
+  overflow: auto;
+}
+
+.sheet-head {
+  border-bottom: 1px solid black;
+}
+
+.sheet-row {
+  width: 100%;
+  margin-block: 20px;
+}
+
+.sheet-header-cell {
+  padding: 12px;
+}
+
+.sheet-cell {
+  width: fit-content;
+}
+
+.sheet-input {
+  height: 48px;
+  outline: none;
+  border: none;
+  padding-inline: 12px;
+  width: 100%;
+}
