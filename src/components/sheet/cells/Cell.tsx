@@ -1,4 +1,4 @@
-import { FC, useState } from 'react';
+import { FC } from 'react';
 import { useSheetStore } from '../../../stores/useSheetStore';
 import { Cell as ICell } from '../../../types/cell';
 
@@ -7,17 +7,18 @@ interface Props {
 }
 
 export const Cell: FC<Props> = ({ cell }) => {
-  const [value, setValue] = useState(cell.value);
+  // const [value, setValue] = useState(cell.value);
 
   const changeSheet = useSheetStore((state) => state.onChangeCell);
 
   const onChangeCell = (value: string) => {
-    setValue(value);
-  };
-
-  const handleBlur = () => {
+    // setValue(value);
     changeSheet(cell, value);
   };
+
+  // const handleBlur = () => {
+  //   changeSheet(cell, value);
+  // };
 
   return (
     <td className="sheet-cell" key={cell.name}>
@@ -25,8 +26,8 @@ export const Cell: FC<Props> = ({ cell }) => {
         onChange={(e) => onChangeCell(e.target.value)}
         className="sheet-input"
         type="text"
-        onBlur={handleBlur}
-        value={value}
+        // onBlur={handleBlur}
+        value={cell.value}
       />
     </td>
   );

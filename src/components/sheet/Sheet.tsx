@@ -5,7 +5,7 @@ import { getSheet, getSheetLetters } from '../../helpers/sheet/get-sheet';
 import { generateUUID } from '../../helpers/uuid';
 import { useSheetStore } from '../../stores/useSheetStore';
 import './Sheet.css';
-import { CellRow } from './cell/CellRow';
+import { CellRow } from './cells/CellRow';
 
 export const Sheet: FC = () => {
   const [rowsQty, colsQty, sheet, setSheet] = useSheetStore(
@@ -25,7 +25,7 @@ export const Sheet: FC = () => {
     <table className="sheet">
       <thead className="sheet-head">
         <tr className="sheet-row">
-          <th className="sheet-cell"></th>
+          <th className="sheet-header-cell"></th>
 
           {getSheetLetters(colsQty).map((name) => (
             <th className="sheet-header-cell" key={generateUUID()}>

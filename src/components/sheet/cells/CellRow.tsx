@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 import { getSheetNumbers } from '../../../helpers/sheet/get-sheet';
 import { generateUUID } from '../../../helpers/uuid';
 import { useSheetStore } from '../../../stores/useSheetStore';
@@ -13,13 +13,17 @@ interface Props {
 export const CellRow: FC<Props> = ({ row, index }) => {
   const rowsQty = useSheetStore((state) => state.rowsQty);
 
-  return (
-    <tr className="sheet-row" key={generateUUID()}>
-      <td className="sheet-header-cell">{getSheetNumbers(rowsQty)[index]}</td>
+  const render = useMemo(() => {
+    return (
+      <tr className="sheet-row" key={generateUUID()}>
+        <td className="sheet-header-cell">{getSheetNumbers(rowsQty)[index]}</td>
 
-      {row.map((cell) => (
-        <Cell key={generateUUID()} cell={cell} />
-      ))}
-    </tr>
-  );
+        {row.map((cell) => (
+          <Cell key={generateUUID()} cell={cell} />
+        ))}
+      </tr>
+    );
+  }, []);
+
+  return render;
 };

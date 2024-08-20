@@ -15,8 +15,8 @@ interface Actions {
 }
 
 export const defaultState: State = {
-  rowsQty: 12,
-  colsQty: 8,
+  rowsQty: 2,
+  colsQty: 2,
   sheet: [],
 };
 
