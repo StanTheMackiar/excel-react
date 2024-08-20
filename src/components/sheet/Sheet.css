@@ -18,6 +18,12 @@
   padding: 12px;
   background-color: rgb(236, 236, 236);
   font-weight: bold;
+  color: rgb(67, 66, 66);
+}
+
+.sheet-header-cell.selected {
+  background-color: rgb(193, 214, 224);
+  outline: 2px solid rgb(149, 163, 194);
 }
 
 .sheet-cell {
@@ -31,4 +37,13 @@
   font-size: 16px;
   padding-inline: 12px;
   width: 100%;
+}
+
+.sheet-input:focus {
+  border: 2px solid rgb(18, 64, 162);
+}
+
+.sheet-input.selected {
+  background-color: rgb(193, 214, 224);
+  outline: 2px solid rgb(149, 163, 194);
 }

@@ -1,6 +1,8 @@
-export interface Cell {
+export interface ICell {
   letter: string;
   number: number;
-  name: string;
+  id: string;
   value: string;
 }
+
+export type ISheet = ICell[][];
