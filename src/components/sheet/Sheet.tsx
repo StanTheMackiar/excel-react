@@ -46,6 +46,8 @@ export const Sheet: FC = () => {
   };
 
   const handleMouseDown = (e: MouseEvent) => {
+    if (e.button !== 0) return;
+
     const cell = getCellFromMouseEvent(e, sheet);
 
     if (!cell) {
