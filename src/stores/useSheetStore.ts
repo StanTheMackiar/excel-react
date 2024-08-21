@@ -18,7 +18,9 @@ interface Actions {
   setIsSelecting: (value: boolean) => void;
   setSelectedCells: (cells: Set<ICell>) => void;
   clearSelectedCells: VoidFunction;
-  setSheetState: (state: Partial<State>) => void;
+  setSheet: (
+    state: Partial<Pick<State, 'colsQty' | 'rowsQty' | 'sheet'>>
+  ) => void;
 }
 
 export const defaultState: State = {
@@ -42,13 +44,12 @@ export const useSheetStore = create<State & Actions>((set) => ({
       return { selectedCells: newSelectedCells };
     }),
 
-  setSheetState: (newState) =>
+  setSheet: (newState) =>
     set((currentState) => {
       // Verificar si hay cambios en las propiedades
       const shouldUpdateRowsQty = newState.rowsQty !== undefined;
       const shouldUpdateColsQty = newState.colsQty !== undefined;
       const shouldUpdateSheet = newState.sheet !== undefined;
-      const shouldUpdateSelectedCells = newState.selectedCells !== undefined;
 
       if (!shouldUpdateRowsQty && !shouldUpdateColsQty && !shouldUpdateSheet) {
         return currentState; // No hacer nada si no hay cambios
@@ -70,9 +71,6 @@ export const useSheetStore = create<State & Actions>((set) => ({
 
       return {
         ...(shouldUpdateColsQty && { colsQty: updatedColsQty }),
-        ...(shouldUpdateSelectedCells && {
-          selectedCells: newState.selectedCells,
-        }),
         ...(shouldUpdateRowsQty && { rowsQty: updatedRowsQty }),
         ...(updatedSheet && { sheet: updatedSheet }),
       };

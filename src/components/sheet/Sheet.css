@@ -18,11 +18,11 @@
   padding: 12px;
   background-color: rgb(236, 236, 236);
   font-weight: bold;
-  color: rgb(67, 66, 66);
 }
 
 .sheet-header-cell.selected {
-  background-color: rgb(193, 214, 224);
+  background-color: rgb(32, 117, 173);
+  color: rgb(255, 255, 255);
   outline: 2px solid rgb(149, 163, 194);
 }
 

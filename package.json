@@ -2,14 +2,14 @@
   "name": "excel-react",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
-    "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "type": "tsc --noEmit",
+    "dev": "vite",
     "format": "prettier --write ./src",
-    "preview": "vite preview"
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "type": "tsc --noEmit"
   },
   "dependencies": {
     "clsx": "^2.1.1",

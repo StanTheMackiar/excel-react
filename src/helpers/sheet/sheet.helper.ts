@@ -1,4 +1,4 @@
-import { ICell, ISheet } from '../../types/cell';
+import { ICell, ICellSpecial, ISheet } from '../../types/cell';
 import { alphabet } from '../constants/alphabet';
 
 export const getSheet = (rowsQty: number, colsQty: number): ISheet =>
@@ -9,20 +9,28 @@ export const getSheet = (rowsQty: number, colsQty: number): ISheet =>
       const id = `${letter}${rowIndex + 1}`;
 
       return {
+        col: colIndex,
+        id,
         letter,
         number,
-        id,
+        row: rowIndex,
         value: '',
       };
     })
   );
 
-export const getSheetLetters = (colsQty: number) => {
-  return Array.from({ length: colsQty }, (_, i) => alphabet[i]);
+export const getSheetLetters = (colsQty: number): ICellSpecial[] => {
+  return Array.from({ length: colsQty }, (_, i) => ({
+    name: alphabet[i],
+    value: i,
+  }));
 };
 
-export const getSheetNumbers = (rowsQty: number) => {
-  return Array.from({ length: rowsQty }, (_, i) => i + 1);
+export const getSheetNumbers = (rowsQty: number): ICellSpecial[] => {
+  return Array.from({ length: rowsQty }, (_, i) => ({
+    name: String(i + 1),
+    value: i,
+  }));
 };
 
 export const adjustSheetSize = (

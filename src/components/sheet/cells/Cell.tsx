@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { FC, useState } from 'react';
+import { FC, useRef, useState } from 'react';
 import { useSheetStore } from '../../../stores/useSheetStore';
 import { ICell } from '../../../types/cell';
 
@@ -11,6 +11,8 @@ interface Props {
 export const Cell: FC<Props> = ({ cell, onBlur }) => {
   const selectedCells = useSheetStore((state) => state.selectedCells);
   const [value, setValue] = useState(cell.value);
+
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleBlur = () => {
     if (value !== cell.value) {
@@ -25,6 +27,7 @@ export const Cell: FC<Props> = ({ cell, onBlur }) => {
       <input
         onBlur={handleBlur}
         id={cell.id}
+        ref={inputRef}
         onChange={(e) => setValue(e.target.value)}
         className={clsx('sheet-input', { selected: isSelected })}
         type="text"
