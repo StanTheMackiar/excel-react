@@ -1,37 +1,108 @@
 import clsx from 'clsx';
-import { FC, useRef, useState } from 'react';
+import { ChangeEvent, FC, useEffect, useMemo, useRef, useState } from 'react';
 import { useSheetStore } from '../../../stores/useSheetStore';
-import { ICell } from '../../../types/cell';
+import {
+  CellOnKeyDownParams,
+  ICell,
+} from '../../../types/sheet/cell/cell.types';
 
 interface Props {
   cell: ICell;
-  onBlur: (cell: ICell, value: string) => void;
+  saveChanges: (cell: ICell, value: string) => void;
+  onPressKeyFromCell: (params: CellOnKeyDownParams) => void;
 }
 
-export const Cell: FC<Props> = ({ cell, onBlur }) => {
-  const selectedCells = useSheetStore((state) => state.selectedCells);
+export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
+  const [selectedCells, remarkedCell, setFocusedCellInput] = useSheetStore(
+    (state) => [
+      state.selectedCells,
+      state.remarkedCell,
+      state.setFocusedCellInput,
+    ]
+  );
   const [value, setValue] = useState(cell.value);
+
+  const [inputFocused, setInputFocused] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleBlur = () => {
+    inputRef.current?.blur();
+
+    setFocusedCellInput(null);
+    setInputFocused(false);
     if (value !== cell.value) {
-      onBlur(cell, value);
+      saveChanges(cell, value);
     }
   };
 
-  const isSelected = selectedCells.size > 1 && selectedCells.has(cell);
+  const { isRemarked, isShadow } = useMemo(() => {
+    const isSelected = selectedCells.has(cell);
+    const isShadow = selectedCells.size > 1 && isSelected;
+    const isRemarked = remarkedCell?.id === cell.id;
+
+    return {
+      isShadow,
+      isRemarked,
+    };
+  }, [remarkedCell, selectedCells, cell]);
+
+  const handleKeyDown = (e: KeyboardEvent) =>
+    onPressKeyFromCell({
+      event: e,
+      cell,
+      inputFocused,
+      inputRef,
+      saveChanges: handleBlur,
+      setInternalInput: setValue,
+    });
+
+  useEffect(() => {
+    const disableEvent = !inputFocused && !isRemarked;
+
+    if (disableEvent) {
+      document.removeEventListener('keydown', handleKeyDown);
+
+      return;
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [inputFocused, isRemarked, handleKeyDown]);
+
+  const onDoubleClick = () => {
+    inputRef.current?.focus();
+  };
+
+  const onFocus = () => {
+    setFocusedCellInput(inputRef);
+    setInputFocused(true);
+  };
+
+  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setValue(e.target.value);
+  };
 
   return (
-    <td className="sheet-cell" key={cell.id}>
+    <td
+      onDoubleClick={onDoubleClick}
+      id={`${cell.id}-cell`}
+      className="sheet-cell"
+      key={cell.id}
+    >
       <input
         onBlur={handleBlur}
-        id={cell.id}
+        onFocus={onFocus}
         ref={inputRef}
-        onChange={(e) => setValue(e.target.value)}
-        className={clsx('sheet-input', { selected: isSelected })}
+        id={`${cell.id}-cellinput`}
+        onChange={onChange}
+        className={clsx('sheet-input', {
+          'cell-shadow': isShadow,
+          'cell-marked': isRemarked,
+        })}
         type="text"
-        value={value}
+        value={inputFocused ? value : cell.computedValue}
       />
     </td>
   );

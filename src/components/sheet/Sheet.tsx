@@ -7,17 +7,49 @@ import {
   getSheetNumbers,
 } from '../../helpers/sheet/sheet.helper';
 import { useSheetStore } from '../../stores/useSheetStore';
-import { ICell, ICellSpecial } from '../../types/cell';
+import {
+  CellOnKeyDownParams,
+  ICell,
+  ICellSpecial,
+} from '../../types/sheet/cell/cell.types';
 
 import clsx from 'clsx';
+import { isInputKey, isSpecialKey } from '../../helpers/keys/keys.helpers';
+import { ActionByKeyPressedParams } from '../../types/sheet/sheet.types';
 import './Sheet.css';
 import { Cell } from './cells/Cell';
 
 export const Sheet: FC = () => {
-  const [sheet, setSheetState] = useSheetStore((state) => [
-    state.sheet,
-    state.setSheet,
-  ]);
+  const [
+    addCellsToSelection,
+    unmarkSelectedCells,
+    isSelecting,
+    moveRemarkedCell,
+    selectedCells,
+    setRemarkedCell,
+    setIsSelecting,
+    setSelectedCells,
+    setSheet,
+    sheet,
+    updateCell,
+    remarkedCell,
+  ] = useSheetStore(
+    useShallow((state) => [
+      state.addCellsToSelection,
+      state.unmarkSelectedCells,
+      state.isSelecting,
+      state.moveRemarkedCell,
+      state.selectedCells,
+      state.setRemarkedCell,
+      state.setIsSelecting,
+      state.setSelectedCells,
+      state.setSheet,
+      state.sheet,
+      state.updateCell,
+      state.remarkedCell,
+    ])
+  );
+
   const [rowsQty, colsQty] = useSheetStore(
     useShallow((state) => [state.rowsQty, state.colsQty])
   );
@@ -26,28 +58,22 @@ export const Sheet: FC = () => {
     null
   );
 
-  const [
-    selectedCells,
-    setSelectedCells,
-    addCellsToSelection,
-    isSelecting,
-    setIsSelecting,
-    clearSelectedCells,
-  ] = useSheetStore((state) => [
-    state.selectedCells,
-    state.setSelectedCells,
-    state.addCellsToSelection,
-    state.isSelecting,
-    state.setIsSelecting,
-    state.clearSelectedCells,
-  ]);
-
-  const onBlurCell = (cell: ICell, value: string) => {
+  const saveSheetFromCell = (cell: ICell, value: string) => {
     const newSheet = sheet.map((row) =>
-      row.map((c) => (c.id === cell.id ? { ...c, value } : c))
+      row.map((sheetCell) => {
+        if (sheetCell.id === cell.id) {
+          const computedValue = value;
+
+          return {
+            ...sheetCell,
+            value,
+            computedValue,
+          };
+        } else return sheetCell;
+      })
     );
 
-    setSheetState({ sheet: newSheet });
+    setSheet({ sheet: newSheet });
   };
 
   const handleMouseDown = (e: MouseEvent) => {
@@ -56,13 +82,25 @@ export const Sheet: FC = () => {
     const cell = getCellFromMouseEvent(e, sheet);
 
     if (!cell) {
-      clearSelectedCells();
+      setRemarkedCell(null);
+      unmarkSelectedCells();
+
+      return;
+    }
+
+    const isUniqueSelected = selectedCells.size === 1;
+
+    if (isUniqueSelected && remarkedCell?.id === cell?.id) {
+      setIsSelecting(false);
+
+      console.log('entra');
 
       return;
     }
 
     if (!isSelecting) {
       setIsSelecting(true);
+      setRemarkedCell(cell);
       setSelectedCells(new Set([cell]));
       setStartSelectionCell(cell);
 
@@ -82,14 +120,14 @@ export const Sheet: FC = () => {
 
     const newSelectedCells = new Set<ICell>();
 
-    const startRow = Math.min(startCell.row, currentCell.row);
-    const endRow = Math.max(startCell.row, currentCell.row);
-    const startCol = Math.min(startCell.col, currentCell.col);
-    const endCol = Math.max(startCell.col, currentCell.col);
+    const startY = Math.min(startCell.positionY, currentCell.positionY);
+    const endY = Math.max(startCell.positionY, currentCell.positionY);
+    const startX = Math.min(startCell.positionX, currentCell.positionX);
+    const endX = Math.max(startCell.positionX, currentCell.positionX);
 
-    for (let row = startRow; row <= endRow; row++) {
-      for (let col = startCol; col <= endCol; col++) {
-        const cell = sheet[row][col];
+    for (let y = startY; y <= endY; y++) {
+      for (let x = startX; x <= endX; x++) {
+        const cell = sheet[y][x];
         newSelectedCells.add(cell);
       }
     }
@@ -117,15 +155,19 @@ export const Sheet: FC = () => {
   const sheetNumbers = useMemo(() => getSheetNumbers(rowsQty), [rowsQty]);
 
   const onClickColumn = (col: ICellSpecial) => {
-    const columnFound = sheet.flat().filter((cell) => cell.col === col.value);
+    const columnsFound = sheet
+      .flat()
+      .filter((cell) => cell.positionX === col.value);
 
-    setSelectedCells(new Set(columnFound));
+    setSelectedCells(new Set(columnsFound));
   };
 
   const onClickRow = (row: ICellSpecial) => {
-    const rowFound = sheet.flat().filter((cell) => cell.row === row.value);
+    const rowsFound = sheet
+      .flat()
+      .filter((cell) => cell.positionY === row.value);
 
-    setSelectedCells(new Set(rowFound));
+    setSelectedCells(new Set(rowsFound));
   };
 
   const getColIsSelected = useCallback(
@@ -133,7 +175,7 @@ export const Sheet: FC = () => {
       const selectedCellsArray = Array.from(selectedCells);
 
       const someColSelected = selectedCellsArray.some(
-        (selectedCell) => selectedCell.col === col.value
+        (selectedCell) => selectedCell.positionX === col.value
       );
 
       return someColSelected;
@@ -146,13 +188,94 @@ export const Sheet: FC = () => {
       const selectedCellsArray = Array.from(selectedCells);
 
       const someRowSelected = selectedCellsArray.some(
-        (selectedCell) => selectedCell.row === row.value
+        (selectedCell) => selectedCell.positionY === row.value
       );
 
       return someRowSelected;
     },
     [sheet, selectedCells]
   );
+
+  const onPressEnter = ({
+    focus,
+    saveChanges,
+    inputRef,
+  }: ActionByKeyPressedParams) => {
+    if (focus) {
+      saveChanges();
+      moveRemarkedCell('down');
+    } else {
+      inputRef.current?.focus();
+    }
+  };
+
+  const onPressTab = ({ saveChanges }: ActionByKeyPressedParams) => {
+    saveChanges();
+    moveRemarkedCell('right');
+  };
+
+  const onPressBackspace = ({
+    cell,
+    focus,
+    setInternalInput,
+  }: ActionByKeyPressedParams) => {
+    if (!focus) {
+      setInternalInput('');
+      updateCell(cell.id, { value: '', computedValue: '' });
+    }
+  };
+
+  const getActionByKeyPressed = (
+    params: ActionByKeyPressedParams
+  ): VoidFunction | undefined => {
+    const keyMap: Record<string, VoidFunction | undefined> = {
+      Enter: () => onPressEnter(params),
+      Backspace: () => onPressBackspace(params),
+      Delete: () => onPressBackspace(params),
+      Tab: () => onPressTab(params),
+      ArrowRight: () => moveRemarkedCell('right'),
+      ArrowLeft: () => moveRemarkedCell('left'),
+      ArrowDown: () => moveRemarkedCell('down'),
+      ArrowUp: () => moveRemarkedCell('up'),
+    };
+
+    return keyMap[params.keyCode];
+  };
+
+  const onPressKeyFromCell = ({
+    cell,
+    event,
+    inputFocused,
+    saveChanges,
+    inputRef,
+    setInternalInput,
+  }: CellOnKeyDownParams) => {
+    if (!inputRef.current)
+      throw new Error(`No se encontró la ref del input ${cell.id}`);
+
+    const keyCode = event.key;
+
+    const specialKeyPressed = isSpecialKey(keyCode);
+    const inputKeyPressed = isInputKey(keyCode);
+
+    if (specialKeyPressed) event.preventDefault();
+
+    const keyAction = getActionByKeyPressed({
+      cell,
+      keyCode,
+      inputRef,
+      focus: inputFocused,
+      saveChanges,
+      setInternalInput,
+    });
+
+    if (keyAction) return keyAction();
+
+    if (inputKeyPressed && !inputFocused) {
+      setInternalInput('');
+      inputRef.current.focus();
+    }
+  };
 
   return (
     <table className="sheet">
@@ -192,7 +315,14 @@ export const Sheet: FC = () => {
               </td>
 
               {row.map((cell) => {
-                return <Cell key={cell.id} cell={cell} onBlur={onBlurCell} />;
+                return (
+                  <Cell
+                    onPressKeyFromCell={onPressKeyFromCell}
+                    key={cell.id}
+                    cell={cell}
+                    saveChanges={saveSheetFromCell}
+                  />
+                );
               })}
             </tr>
           );

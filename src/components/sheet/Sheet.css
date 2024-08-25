@@ -1,6 +1,7 @@
 .sheet {
   padding: 20px;
   width: 100%;
+  user-select: none;
   background-color: white;
   overflow: auto;
 }
@@ -27,23 +28,26 @@
 }
 
 .sheet-cell {
+  user-select: auto;
   width: fit-content;
 }
 
 .sheet-input {
   height: 48px;
   outline: none;
+  user-select: auto;
   border: none;
+  pointer-events: none;
   font-size: 16px;
   padding-inline: 12px;
   width: 100%;
 }
 
-.sheet-input:focus {
+.cell-marked {
   border: 2px solid rgb(18, 64, 162);
 }
 
-.sheet-input.selected {
+.cell-shadow {
   background-color: rgb(193, 214, 224);
   outline: 2px solid rgb(149, 163, 194);
 }

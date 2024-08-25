@@ -1,20 +1,21 @@
-import { ICell, ICellSpecial, ISheet } from '../../types/cell';
+import { ICell, ICellSpecial, ISheet } from '../../types/sheet/cell/cell.types';
 import { alphabet } from '../constants/alphabet';
 
 export const getSheet = (rowsQty: number, colsQty: number): ISheet =>
-  Array.from({ length: rowsQty }, (_, rowIndex) =>
-    Array.from({ length: colsQty }, (_, colIndex) => {
-      const number = rowIndex + 1;
-      const letter = String.fromCharCode(65 + colIndex);
-      const id = `${letter}${rowIndex + 1}`;
+  Array.from({ length: rowsQty }, (_, positionY) =>
+    Array.from({ length: colsQty }, (_, positionX) => {
+      const number = positionY + 1;
+      const letter = String.fromCharCode(65 + positionX);
+      const id = `${letter}${positionY + 1}`;
 
       return {
-        col: colIndex,
+        positionY,
         id,
         letter,
         number,
-        row: rowIndex,
-        value: '',
+        positionX,
+        value: `y:${positionY} - x:${positionX}`,
+        computedValue: `y:${positionY} - x:${positionX}`,
       };
     })
   );
@@ -54,12 +55,11 @@ export const adjustSheetSize = (
 };
 
 export const getCellFromMouseEvent = (e: any, sheet: ISheet): ICell | null => {
-  const cellId = e.target.id;
+  const [cellId] = e.target.id.split('-');
 
   if (!cellId) return null;
 
   const cell = sheet.flat().find((cell) => cell.id === cellId) ?? null;
 
-  // Debes implementar una lógica que convierta la posición del mouse a una celda en tu hoja
   return cell;
 };
