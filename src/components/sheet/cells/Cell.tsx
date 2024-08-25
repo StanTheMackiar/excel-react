@@ -100,6 +100,7 @@ export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
         className={clsx('sheet-input', {
           'cell-shadow': isShadow,
           'cell-marked': isRemarked,
+          'disable-pointer-events': !inputFocused,
         })}
         type="text"
         value={inputFocused ? value : cell.computedValue}

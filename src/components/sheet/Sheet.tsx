@@ -22,31 +22,33 @@ import { Cell } from './cells/Cell';
 export const Sheet: FC = () => {
   const [
     addCellsToSelection,
-    unmarkSelectedCells,
+    focusedCellInput,
     isSelecting,
     moveRemarkedCell,
+    remarkedCell,
     selectedCells,
-    setRemarkedCell,
     setIsSelecting,
+    setRemarkedCell,
     setSelectedCells,
     setSheet,
     sheet,
+    unmarkSelectedCells,
     updateCell,
-    remarkedCell,
   ] = useSheetStore(
     useShallow((state) => [
       state.addCellsToSelection,
-      state.unmarkSelectedCells,
+      state.focusedCellInput,
       state.isSelecting,
       state.moveRemarkedCell,
+      state.remarkedCell,
       state.selectedCells,
-      state.setRemarkedCell,
       state.setIsSelecting,
+      state.setRemarkedCell,
       state.setSelectedCells,
       state.setSheet,
       state.sheet,
+      state.unmarkSelectedCells,
       state.updateCell,
-      state.remarkedCell,
     ])
   );
 
@@ -91,14 +93,13 @@ export const Sheet: FC = () => {
     const isUniqueSelected = selectedCells.size === 1;
 
     if (isUniqueSelected && remarkedCell?.id === cell?.id) {
-      setIsSelecting(false);
-
-      console.log('entra');
+      setIsSelecting(true);
 
       return;
     }
 
     if (!isSelecting) {
+      console.log('f');
       setIsSelecting(true);
       setRemarkedCell(cell);
       setSelectedCells(new Set([cell]));
@@ -278,7 +279,7 @@ export const Sheet: FC = () => {
   };
 
   return (
-    <table className="sheet">
+    <table className={clsx('sheet', { 'enable-select': !!focusedCellInput })}>
       <thead className="sheet-head">
         <tr className="sheet-row">
           <th className="sheet-header-cell"></th>

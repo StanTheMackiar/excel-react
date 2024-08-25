@@ -1,9 +1,9 @@
 .sheet {
   padding: 20px;
   width: 100%;
-  user-select: none;
   background-color: white;
   overflow: auto;
+  user-select: none;
 }
 
 .sheet-head {
@@ -28,16 +28,13 @@
 }
 
 .sheet-cell {
-  user-select: auto;
   width: fit-content;
 }
 
 .sheet-input {
   height: 48px;
   outline: none;
-  user-select: auto;
   border: none;
-  pointer-events: none;
   font-size: 16px;
   padding-inline: 12px;
   width: 100%;

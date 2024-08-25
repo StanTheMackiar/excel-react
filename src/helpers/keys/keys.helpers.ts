@@ -1,6 +1,7 @@
 export function isSpecialKey(key: string): boolean {
   const specialKeys = new Set([
     'Alt',
+    'AltGraph',
     'Control',
     'Shift',
     'Meta',
@@ -14,6 +15,7 @@ export function isSpecialKey(key: string): boolean {
     'End',
     'PageUp',
     'Tab',
+    'End',
     'PageDown',
     'Insert',
     'Delete',

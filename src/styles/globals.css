@@ -52,3 +52,11 @@ main {
   align-items: center;
   justify-content: center;
 }
+
+.enable-select {
+  user-select: auto;
+}
+
+.disable-pointer-events {
+  pointer-events: none;
+}
