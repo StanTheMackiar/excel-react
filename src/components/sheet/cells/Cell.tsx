@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { ChangeEvent, FC, useEffect, useMemo, useRef, useState } from 'react';
+import KeyEnum from '../../../enum/key.enum';
 import { useSheetStore } from '../../../stores/useSheetStore';
 import {
   CellOnKeyDownParams,
@@ -13,15 +14,19 @@ interface Props {
 }
 
 export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
-  const [selectedCells, remarkedCell, setFocusedCellInput] = useSheetStore(
+  const [selectedCells, remarkedCell, setFocusedCellInput, addPressedKey, removePressedKey] = useSheetStore(
     (state) => [
       state.selectedCells,
       state.remarkedCell,
       state.setFocusedCellInput,
+      state.addPressedKey,
+      state.removePressedKey,
     ]
   );
-  const [value, setValue] = useState(cell.value);
 
+
+
+  const [value, setValue] = useState(cell.value);
   const [inputFocused, setInputFocused] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +52,9 @@ export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
     };
   }, [remarkedCell, selectedCells, cell]);
 
-  const handleKeyDown = (e: KeyboardEvent) =>
+  const handleKeyDown = (e: KeyboardEvent) => {
+    addPressedKey(e.key as KeyEnum)
+
     onPressKeyFromCell({
       event: e,
       cell,
@@ -56,19 +63,30 @@ export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
       saveChanges: handleBlur,
       setInternalInput: setValue,
     });
+  }
+   
+
+  const handleKeyUp = (e: KeyboardEvent) => {
+    removePressedKey(e.key as KeyEnum)
+  }
 
   useEffect(() => {
     const disableEvent = !inputFocused && !isRemarked;
 
     if (disableEvent) {
       document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
 
       return;
     }
 
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
 
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('keyup', handleKeyUp);
+    }
   }, [inputFocused, isRemarked, handleKeyDown]);
 
   const onDoubleClick = () => {

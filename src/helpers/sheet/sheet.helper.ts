@@ -6,7 +6,7 @@ export const getSheet = (rowsQty: number, colsQty: number): ISheet =>
     Array.from({ length: colsQty }, (_, positionX) => {
       const number = positionY + 1;
       const letter = String.fromCharCode(65 + positionX);
-      const id = `${letter}${positionY + 1}`;
+      const id = `${letter}${number}`;
 
       return {
         positionY,
@@ -63,3 +63,7 @@ export const getCellFromMouseEvent = (e: any, sheet: ISheet): ICell | null => {
 
   return cell;
 };
+
+export const replaceFunctionsRefToValues = (exp: string, sheet: ISheet) => {
+  
+}

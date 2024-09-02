@@ -1,10 +1,17 @@
 import { RefObject } from 'react';
 import { create } from 'zustand';
+import KeyEnum from '../enum/key.enum';
 import { adjustSheetSize, getSheet } from '../helpers/sheet/sheet.helper';
 import { ICell } from '../types/sheet/cell/cell.types';
 
 const initialRowsQty = 16;
 const initialColsQty = 8;
+
+export type SelectedCellsInternalState = {
+  cell: ICell
+  stateSetter?: (value: string) => void
+  stateGetter?: () => string
+}
 
 export type Direction = 'left' | 'up' | 'down' | 'right';
 interface State {
@@ -13,19 +20,23 @@ interface State {
   rowsQty: number;
   remarkedCell: ICell | null;
   focusedCellInput: RefObject<HTMLInputElement> | null;
-  selectedCells: Set<ICell>;
+  selectedCells: Set<SelectedCellsInternalState>;
   sheet: ICell[][];
+  pressedKeys: KeyEnum[] 
 }
 
 interface Actions {
-  moveRemarkedCell: (direction: Direction) => void;
   addCellsToSelection: (cell: ICell) => void;
-  setIsSelecting: (value: boolean) => void;
+  addPressedKey: (key: KeyEnum) => void;
+  moveRemarkedCell: (direction: Direction) => void;
+  removePressedKey: (key: KeyEnum) => void;
   setFocusedCellInput: (value: RefObject<HTMLInputElement> | null) => void;
-  setSelectedCells: (cells: Set<ICell>) => void;
-  updateCell: (cellId: string, updatedCell: Partial<Omit<ICell, 'id'>>) => void;
-  unmarkSelectedCells: VoidFunction;
+  setIsSelecting: (value: boolean) => void;
   setRemarkedCell: (cell: ICell | null) => void;
+  setSelectedCells: (cells: Set<SelectedCellsInternalState>) => void;
+  unmarkSelectedCells: VoidFunction;
+  updateCell: (cellId: string, updatedCell: Partial<Omit<ICell, 'id'>>) => void;
+  updateCells: (cells: (Partial<ICell> & {id: string})[]) => void;
   setSheet: (
     state: Partial<Pick<State, 'colsQty' | 'rowsQty' | 'sheet'>>
   ) => void;
@@ -33,10 +44,11 @@ interface Actions {
 
 export const defaultState: State = {
   colsQty: initialColsQty,
+  focusedCellInput: null,
   isSelecting: false,
+  pressedKeys: [],
   remarkedCell: null,
   rowsQty: initialRowsQty,
-  focusedCellInput: null,
   selectedCells: new Set(),
   sheet: getSheet(initialRowsQty, initialColsQty),
 };
@@ -44,8 +56,25 @@ export const defaultState: State = {
 export const useSheetStore = create<State & Actions>((set) => ({
   ...defaultState,
 
+  addPressedKey: (key) => set(({ pressedKeys }) => ({
+    pressedKeys: [...new Set([...pressedKeys, key])]
+  })),
+
+  removePressedKey: (key) => set(({ pressedKeys }) => ({
+    pressedKeys: pressedKeys.filter(stateKey => stateKey !== key)
+  })),
+
   setFocusedCellInput: (value) => set({ focusedCellInput: value }),
 
+  updateCells: (updatedCells) => set(({sheet}) => (
+    {sheet: sheet.map(row => row.map(sheetCell => {
+      const cellFinded = updatedCells.find(updatedCell => updatedCell.id === sheetCell.id)
+
+      if(cellFinded) return ({...sheetCell, ...cellFinded})
+        else return sheetCell
+
+    }))}
+  )),
   updateCell: (cellId, updatedCell) =>
     set(({ sheet }) => ({
       sheet: sheet.map((row) =>
@@ -93,7 +122,7 @@ export const useSheetStore = create<State & Actions>((set) => ({
 
       return {
         remarkedCell: newFocusedCell,
-        selectedCells: new Set([newFocusedCell]),
+        selectedCells: new Set([{ cell: newFocusedCell }]),
       };
     }),
 
@@ -107,7 +136,7 @@ export const useSheetStore = create<State & Actions>((set) => ({
 
   addCellsToSelection: (newCell) =>
     set((state) => {
-      const newSelectedCells = state.selectedCells.add(newCell);
+      const newSelectedCells = state.selectedCells.add({cell: newCell});
 
       return { selectedCells: newSelectedCells };
     }),
