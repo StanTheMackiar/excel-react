@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { ChangeEvent, FC, useEffect, useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import KeyEnum from '../../../enum/key.enum';
 import { useSheetStore } from '../../../stores/useSheetStore';
 import {
@@ -14,22 +15,47 @@ interface Props {
 }
 
 export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
-  const [selectedCells, remarkedCell, setFocusedCellInput, addPressedKey, removePressedKey] = useSheetStore(
-    (state) => [
+  const [
+    selectedCells,
+    addSelectedCellState,
+    remarkedCell,
+    setFocusedCellInput,
+    addPressedKey,
+    removePressedKey,
+    removeSelectedCellState,
+  ] = useSheetStore(
+    useShallow((state) => [
       state.selectedCells,
+      state.addSelectedCellState,
       state.remarkedCell,
       state.setFocusedCellInput,
       state.addPressedKey,
       state.removePressedKey,
-    ]
+      state.removeSelectedCellState,
+    ])
   );
-
-
 
   const [value, setValue] = useState(cell.value);
   const [inputFocused, setInputFocused] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isSelected = useMemo(
+    () => selectedCells.some((selectedCell) => selectedCell.id === cell.id),
+    [selectedCells, cell]
+  );
+
+  useEffect(() => {
+    if (isSelected) {
+      addSelectedCellState({
+        cellId: cell.id,
+        setValue: (value: string) => setValue(value),
+        value,
+      });
+    } else {
+      removeSelectedCellState(cell.id);
+    }
+  }, [isSelected, setValue, value]);
 
   const handleBlur = () => {
     inputRef.current?.blur();
@@ -42,18 +68,17 @@ export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
   };
 
   const { isRemarked, isShadow } = useMemo(() => {
-    const isSelected = selectedCells.has(cell);
-    const isShadow = selectedCells.size > 1 && isSelected;
+    const isShadow = selectedCells.length > 1 && isSelected;
     const isRemarked = remarkedCell?.id === cell.id;
 
     return {
       isShadow,
       isRemarked,
     };
-  }, [remarkedCell, selectedCells, cell]);
+  }, [remarkedCell, isSelected, selectedCells, cell]);
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    addPressedKey(e.key as KeyEnum)
+    addPressedKey(e.key as KeyEnum);
 
     onPressKeyFromCell({
       event: e,
@@ -63,12 +88,11 @@ export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
       saveChanges: handleBlur,
       setInternalInput: setValue,
     });
-  }
-   
+  };
 
   const handleKeyUp = (e: KeyboardEvent) => {
-    removePressedKey(e.key as KeyEnum)
-  }
+    removePressedKey(e.key as KeyEnum);
+  };
 
   useEffect(() => {
     const disableEvent = !inputFocused && !isRemarked;
@@ -84,9 +108,9 @@ export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
     document.addEventListener('keyup', handleKeyUp);
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
-    }
+    };
   }, [inputFocused, isRemarked, handleKeyDown]);
 
   const onDoubleClick = () => {

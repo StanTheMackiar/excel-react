@@ -6,7 +6,7 @@ import {
   getSheetLetters,
   getSheetNumbers,
 } from '../../helpers/sheet/sheet.helper';
-import { SelectedCellsInternalState, useSheetStore } from '../../stores/useSheetStore';
+import { useSheetStore } from '../../stores/useSheetStore';
 import {
   CellOnKeyDownParams,
   ICell,
@@ -33,9 +33,9 @@ export const Sheet: FC = () => {
     setSheet,
     sheet,
     unmarkSelectedCells,
-    updateCell,
     updateCells,
-    pressedKeys
+    pressedKeys,
+    selectedCellsState,
   ] = useSheetStore(
     useShallow((state) => [
       state.addCellsToSelection,
@@ -50,9 +50,9 @@ export const Sheet: FC = () => {
       state.setSheet,
       state.sheet,
       state.unmarkSelectedCells,
-      state.updateCell,
       state.updateCells,
-      state.pressedKeys
+      state.pressedKeys,
+      state.selectedCellsState,
     ])
   );
 
@@ -68,24 +68,23 @@ export const Sheet: FC = () => {
     const newSheet = sheet.map((row) =>
       row.map((sheetCell) => {
         if (sheetCell.id === cell.id) {
-          const cellHasFunction = value.startsWith('=')
+          const cellHasFunction = value.startsWith('=');
 
-          let computedValue = value
+          let computedValue = value;
 
-          if(cellHasFunction) {
+          if (cellHasFunction) {
             try {
-              const result = eval(value.substring(1))
+              const result = eval(value.substring(1));
 
-              const avaiableTypes = ["string", "number"]
-              const resultType = typeof result
+              const avaiableTypes = ['string', 'number'];
+              const resultType = typeof result;
 
-              if(avaiableTypes.includes(resultType)) computedValue = result
-              else throw new Error()
-
+              if (avaiableTypes.includes(resultType)) computedValue = result;
+              else throw new Error();
             } catch (error) {
-              console.error(error)
+              console.error(error);
 
-              computedValue = '#ERROR'
+              computedValue = '#ERROR';
             }
           }
 
@@ -113,7 +112,7 @@ export const Sheet: FC = () => {
       return;
     }
 
-    const isUniqueSelected = selectedCells.size === 1;
+    const isUniqueSelected = selectedCells.length === 1;
 
     if (isUniqueSelected && remarkedCell?.id === cell?.id) {
       setIsSelecting(true);
@@ -124,7 +123,7 @@ export const Sheet: FC = () => {
     if (!isSelecting) {
       setIsSelecting(true);
       setRemarkedCell(cell);
-      setSelectedCells(new Set([{cell}]));
+      setSelectedCells([cell]);
       setStartSelectionCell(cell);
 
       return;
@@ -141,7 +140,7 @@ export const Sheet: FC = () => {
 
     if (!currentCell) return;
 
-    const newSelectedCells = new Set<SelectedCellsInternalState>();
+    const newSelectedCells: ICell[] = [];
 
     const startY = Math.min(startCell.positionY, currentCell.positionY);
     const endY = Math.max(startCell.positionY, currentCell.positionY);
@@ -151,7 +150,7 @@ export const Sheet: FC = () => {
     for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
         const cell = sheet[y][x];
-        newSelectedCells.add({cell});
+        newSelectedCells.push(cell);
       }
     }
 
@@ -178,19 +177,21 @@ export const Sheet: FC = () => {
   const sheetNumbers = useMemo(() => getSheetNumbers(rowsQty), [rowsQty]);
 
   const onClickColumn = (col: ICellSpecial) => {
-    const columnsFound: SelectedCellsInternalState[] = sheet
+    const columnsFound: ICell[] = sheet
       .flat()
-      .filter((cell) => cell.positionX === col.value).map(cell => ({cell}));
+      .filter((cell) => cell.positionX === col.value)
+      .map((cell) => cell);
 
-    setSelectedCells(new Set(columnsFound));
+    setSelectedCells(columnsFound);
   };
 
   const onClickRow = (row: ICellSpecial) => {
-    const rowsFound: SelectedCellsInternalState[] = sheet
+    const rowsFound: ICell[] = sheet
       .flat()
-      .filter((cell) => cell.positionY === row.value).map(cell => ({cell}));
+      .filter((cell) => cell.positionY === row.value)
+      .map((cell) => cell);
 
-    setSelectedCells(new Set(rowsFound));
+    setSelectedCells(rowsFound);
   };
 
   const getColIsSelected = useCallback(
@@ -198,7 +199,7 @@ export const Sheet: FC = () => {
       const selectedCellsArray = Array.from(selectedCells);
 
       const someColSelected = selectedCellsArray.some(
-        (selectedCellState) => selectedCellState.cell.positionX === col.value
+        (selectedCell) => selectedCell.positionX === col.value
       );
 
       return someColSelected;
@@ -211,7 +212,7 @@ export const Sheet: FC = () => {
       const selectedCellsArray = Array.from(selectedCells);
 
       const someRowSelected = selectedCellsArray.some(
-        (selectedCellState) => selectedCellState.cell.positionY === row.value
+        (selectedCell) => selectedCell.positionY === row.value
       );
 
       return someRowSelected;
@@ -243,25 +244,23 @@ export const Sheet: FC = () => {
   };
 
   const onPressBackspace = ({
-    cell,
     focus,
     setInternalInput,
   }: ActionByKeyPressedParams) => {
     if (!focus) {
       setInternalInput('');
-      updateCell(cell.id, { value: '', computedValue: '' });
-      
-      const selectedCellsCleaned: ICell[] = Array.from(selectedCells).map(cellState => ({...cellState.cell, value: '', computedValue: ''}))
 
-      updateCells(selectedCellsCleaned)
+      const selectedCellsCleaned: ICell[] = selectedCells.map(
+        (selectedCell) => ({ ...selectedCell, value: '', computedValue: '' })
+      );
+
+      updateCells(selectedCellsCleaned);
     }
   };
 
   const getActionByKeyPressed = (
     params: ActionByKeyPressedParams
   ): VoidFunction | undefined => {
-
-
     const keyMap: Record<string, VoidFunction | undefined> = {
       Enter: () => onPressEnter(params),
       Backspace: () => onPressBackspace(params),

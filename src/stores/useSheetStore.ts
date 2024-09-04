@@ -7,11 +7,11 @@ import { ICell } from '../types/sheet/cell/cell.types';
 const initialRowsQty = 16;
 const initialColsQty = 8;
 
-export type SelectedCellsInternalState = {
-  cell: ICell
-  stateSetter?: (value: string) => void
-  stateGetter?: () => string
-}
+export type SelectedCellState = {
+  cellId: string;
+  value: string;
+  setValue: (value: string) => void;
+};
 
 export type Direction = 'left' | 'up' | 'down' | 'right';
 interface State {
@@ -20,9 +20,10 @@ interface State {
   rowsQty: number;
   remarkedCell: ICell | null;
   focusedCellInput: RefObject<HTMLInputElement> | null;
-  selectedCells: Set<SelectedCellsInternalState>;
+  selectedCells: ICell[];
+  selectedCellsState: SelectedCellState[];
   sheet: ICell[][];
-  pressedKeys: KeyEnum[] 
+  pressedKeys: KeyEnum[];
 }
 
 interface Actions {
@@ -33,10 +34,13 @@ interface Actions {
   setFocusedCellInput: (value: RefObject<HTMLInputElement> | null) => void;
   setIsSelecting: (value: boolean) => void;
   setRemarkedCell: (cell: ICell | null) => void;
-  setSelectedCells: (cells: Set<SelectedCellsInternalState>) => void;
+  setSelectedCells: (cells: ICell[]) => void;
+  setSelectedCellsState: (cells: SelectedCellState[]) => void;
+  addSelectedCellState: (cell: SelectedCellState) => void;
+  removeSelectedCellState: (cellId: string) => void;
   unmarkSelectedCells: VoidFunction;
   updateCell: (cellId: string, updatedCell: Partial<Omit<ICell, 'id'>>) => void;
-  updateCells: (cells: (Partial<ICell> & {id: string})[]) => void;
+  updateCells: (cells: (Partial<ICell> & { id: string })[]) => void;
   setSheet: (
     state: Partial<Pick<State, 'colsQty' | 'rowsQty' | 'sheet'>>
   ) => void;
@@ -49,40 +53,69 @@ export const defaultState: State = {
   pressedKeys: [],
   remarkedCell: null,
   rowsQty: initialRowsQty,
-  selectedCells: new Set(),
+  selectedCells: [],
+  selectedCellsState: [],
   sheet: getSheet(initialRowsQty, initialColsQty),
 };
 
 export const useSheetStore = create<State & Actions>((set) => ({
   ...defaultState,
 
-  addPressedKey: (key) => set(({ pressedKeys }) => ({
-    pressedKeys: [...new Set([...pressedKeys, key])]
-  })),
+  addPressedKey: (key) =>
+    set(({ pressedKeys }) => ({
+      pressedKeys: [...new Set([...pressedKeys, key])],
+    })),
 
-  removePressedKey: (key) => set(({ pressedKeys }) => ({
-    pressedKeys: pressedKeys.filter(stateKey => stateKey !== key)
-  })),
+  removePressedKey: (key) =>
+    set(({ pressedKeys }) => ({
+      pressedKeys: pressedKeys.filter((stateKey) => stateKey !== key),
+    })),
 
   setFocusedCellInput: (value) => set({ focusedCellInput: value }),
 
-  updateCells: (updatedCells) => set(({sheet}) => (
-    {sheet: sheet.map(row => row.map(sheetCell => {
-      const cellFinded = updatedCells.find(updatedCell => updatedCell.id === sheetCell.id)
-
-      if(cellFinded) return ({...sheetCell, ...cellFinded})
-        else return sheetCell
-
-    }))}
-  )),
-  updateCell: (cellId, updatedCell) =>
-    set(({ sheet }) => ({
+  updateCells: (updatedCells) =>
+    set(({ sheet, selectedCellsState }) => ({
       sheet: sheet.map((row) =>
-        row.map((sheetCell) =>
-          sheetCell.id === cellId ? { ...sheetCell, ...updatedCell } : sheetCell
-        )
+        row.map((sheetCell) => {
+          const cellFinded = updatedCells.find(
+            (updatedCell) => updatedCell.id === sheetCell.id
+          );
+
+          if (cellFinded) {
+            const cellState = selectedCellsState.find(
+              (selectedCell) => selectedCell.cellId === cellFinded.id
+            );
+
+            if (cellState && typeof cellFinded.value !== 'undefined') {
+              console.log({ cellState });
+              cellState.setValue(cellFinded.value);
+            }
+
+            return { ...sheetCell, ...cellFinded };
+          } else return sheetCell;
+        })
       ),
     })),
+
+  updateCell: (cellId, updatedCell) =>
+    set(({ sheet, selectedCellsState }) => {
+      const cellState = selectedCellsState.find(
+        (selectedCell) => selectedCell.cellId === cellId
+      );
+
+      if (cellState && typeof updatedCell.value !== 'undefined')
+        cellState.setValue(updatedCell.value);
+
+      return {
+        sheet: sheet.map((row) =>
+          row.map((sheetCell) =>
+            sheetCell.id === cellId
+              ? { ...sheetCell, ...updatedCell }
+              : sheetCell
+          )
+        ),
+      };
+    }),
 
   moveRemarkedCell: (direction) =>
     set(({ remarkedCell: focusedCell, focusedCellInput, sheet }) => {
@@ -122,23 +155,50 @@ export const useSheetStore = create<State & Actions>((set) => ({
 
       return {
         remarkedCell: newFocusedCell,
-        selectedCells: new Set([{ cell: newFocusedCell }]),
+        selectedCells: [newFocusedCell],
       };
     }),
 
-  unmarkSelectedCells: () => set({ selectedCells: new Set() }),
+  unmarkSelectedCells: () => set({ selectedCells: [] }),
+
+  setSelectedCellsState: (cells) =>
+    set({ selectedCellsState: [...new Set(cells)] }),
 
   setIsSelecting: (value) => set({ isSelecting: value }),
 
   setRemarkedCell: (cell) => set({ remarkedCell: cell }),
 
-  setSelectedCells: (cells) => set({ selectedCells: cells }),
+  setSelectedCells: (cells) => set({ selectedCells: [...new Set(cells)] }),
+
+  addSelectedCellState: (cell) =>
+    set((state) => {
+      const newSelectedCellState: SelectedCellState[] =
+        state.selectedCellsState.slice();
+
+      newSelectedCellState.push(cell);
+
+      return {
+        selectedCellsState: [...new Set(newSelectedCellState)],
+      };
+    }),
+
+  removeSelectedCellState: (cellId) =>
+    set((state) => {
+      const newSelectedCellState: SelectedCellState[] =
+        state.selectedCellsState.filter(
+          (cellState) => cellState.cellId !== cellId
+        );
+
+      return {
+        selectedCellsState: [...new Set(newSelectedCellState)],
+      };
+    }),
 
   addCellsToSelection: (newCell) =>
     set((state) => {
-      const newSelectedCells = state.selectedCells.add({cell: newCell});
+      const newSelectedCells = [...state.selectedCells, newCell];
 
-      return { selectedCells: newSelectedCells };
+      return { selectedCells: [...new Set(newSelectedCells)] };
     }),
 
   setSheet: (newState) =>
