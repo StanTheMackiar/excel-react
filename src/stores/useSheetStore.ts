@@ -1,7 +1,13 @@
 import { RefObject } from 'react';
 import { create } from 'zustand';
 import KeyEnum from '../enum/key.enum';
-import { adjustSheetSize, getSheet } from '../helpers/sheet/sheet.helper';
+import {
+  adjustSheetSize,
+  computeCell,
+  getCellByDirection,
+  getSelectedCells,
+  getSheet,
+} from '../helpers/sheet/sheet.helper';
 import { ICell } from '../types/sheet/cell/cell.types';
 
 const initialRowsQty = 16;
@@ -19,8 +25,10 @@ interface State {
   isSelecting: boolean;
   rowsQty: number;
   remarkedCell: ICell | null;
-  focusedCellInput: RefObject<HTMLInputElement> | null;
+  remarkedCellInputRef: RefObject<HTMLInputElement> | null;
+  focusedCellInputRef: RefObject<HTMLInputElement> | null;
   selectedCells: ICell[];
+  latestSelectedCell: ICell | null;
   selectedCellsState: SelectedCellState[];
   sheet: ICell[][];
   pressedKeys: KeyEnum[];
@@ -31,13 +39,18 @@ interface Actions {
   addPressedKey: (key: KeyEnum) => void;
   moveRemarkedCell: (direction: Direction) => void;
   removePressedKey: (key: KeyEnum) => void;
-  setFocusedCellInput: (value: RefObject<HTMLInputElement> | null) => void;
+  setFocusedCellInputRef: (value: RefObject<HTMLInputElement> | null) => void;
+  setRemarkedCellInputRef: (value: RefObject<HTMLInputElement> | null) => void;
   setIsSelecting: (value: boolean) => void;
   setRemarkedCell: (cell: ICell | null) => void;
   setSelectedCells: (cells: ICell[]) => void;
   setSelectedCellsState: (cells: SelectedCellState[]) => void;
   addSelectedCellState: (cell: SelectedCellState) => void;
   removeSelectedCellState: (cellId: string) => void;
+  moveLatestSelectedCell: (direction: Direction) => void;
+  recomputeSheet: () => void;
+  setLatestSelectedCell: (cell: ICell | null) => void;
+  selectCells: (startCell: ICell, currentCell: ICell) => void;
   unmarkSelectedCells: VoidFunction;
   updateCell: (cellId: string, updatedCell: Partial<Omit<ICell, 'id'>>) => void;
   updateCells: (cells: (Partial<ICell> & { id: string })[]) => void;
@@ -48,13 +61,15 @@ interface Actions {
 
 export const defaultState: State = {
   colsQty: initialColsQty,
-  focusedCellInput: null,
+  focusedCellInputRef: null,
   isSelecting: false,
   pressedKeys: [],
   remarkedCell: null,
+  remarkedCellInputRef: null,
   rowsQty: initialRowsQty,
   selectedCells: [],
   selectedCellsState: [],
+  latestSelectedCell: null,
   sheet: getSheet(initialRowsQty, initialColsQty),
 };
 
@@ -71,7 +86,24 @@ export const useSheetStore = create<State & Actions>((set) => ({
       pressedKeys: pressedKeys.filter((stateKey) => stateKey !== key),
     })),
 
-  setFocusedCellInput: (value) => set({ focusedCellInput: value }),
+  setLatestSelectedCell: (cell) => set({ latestSelectedCell: cell }),
+
+  setFocusedCellInputRef: (value) => set({ focusedCellInputRef: value }),
+
+  setRemarkedCellInputRef: (value) => set({ remarkedCellInputRef: value }),
+
+  recomputeSheet: () =>
+    set(({ sheet }) => {
+      const newSheet = sheet.map((row) =>
+        row.map((cell) => {
+          const newCell = computeCell(cell, sheet);
+
+          return newCell;
+        })
+      );
+
+      return { sheet: newSheet };
+    }),
 
   updateCells: (updatedCells) =>
     set(({ sheet, selectedCellsState }) => ({
@@ -118,44 +150,63 @@ export const useSheetStore = create<State & Actions>((set) => ({
     }),
 
   moveRemarkedCell: (direction) =>
-    set(({ remarkedCell: focusedCell, focusedCellInput, sheet }) => {
-      if (!focusedCell || focusedCellInput)
-        return { remarkedCell: focusedCell };
+    set(
+      ({ remarkedCell, sheet, remarkedCellInputRef, focusedCellInputRef }) => {
+        if (!remarkedCell) return { remarkedCell };
 
-      const coordsMap: Record<Direction, { x: number; y: number }> = {
-        up: {
-          x: focusedCell.positionX,
-          y: focusedCell.positionY - 1,
-        },
-        down: {
-          x: focusedCell.positionX,
-          y: focusedCell.positionY + 1,
-        },
-        right: {
-          x: focusedCell.positionX + 1,
-          y: focusedCell.positionY,
-        },
-        left: {
-          x: focusedCell.positionX - 1,
-          y: focusedCell.positionY,
-        },
-      };
-      const coords = coordsMap[direction];
-
-      const newFocusedCell = sheet.flat().find((sheetCell) => {
-        const positionX = Math.max(coords.x, 0);
-        const positionY = Math.max(coords.y, 0);
-
-        return (
-          sheetCell.positionX === positionX && sheetCell.positionY === positionY
+        const newRemarkedCell = getCellByDirection(
+          direction,
+          remarkedCell,
+          sheet
         );
-      });
 
-      if (!newFocusedCell) return { remarkedCell: focusedCell };
+        if (!newRemarkedCell) return { remarkedCell };
+
+        focusedCellInputRef?.current?.blur();
+        remarkedCellInputRef?.current?.blur();
+
+        return {
+          remarkedCell: newRemarkedCell,
+          selectedCells: [newRemarkedCell],
+        };
+      }
+    ),
+
+  selectCells: (startCell, currentCell) =>
+    set(({ sheet }) => {
+      const newSelectedCells = getSelectedCells(startCell, currentCell, sheet);
 
       return {
-        remarkedCell: newFocusedCell,
-        selectedCells: [newFocusedCell],
+        selectedCells: newSelectedCells,
+      };
+    }),
+
+  moveLatestSelectedCell: (direction) =>
+    set(({ latestSelectedCell, remarkedCell, sheet }) => {
+      if (!remarkedCell) return {};
+
+      const startCell = remarkedCell;
+      const targetCell = latestSelectedCell ?? startCell;
+
+      if (!targetCell || !startCell) return {};
+
+      const newLatestSelectedCell = getCellByDirection(
+        direction,
+        targetCell,
+        sheet
+      );
+
+      if (!newLatestSelectedCell) return {};
+
+      const newSelectedCells = getSelectedCells(
+        startCell,
+        newLatestSelectedCell,
+        sheet
+      );
+
+      return {
+        latestSelectedCell: newLatestSelectedCell,
+        selectedCells: newSelectedCells,
       };
     }),
 

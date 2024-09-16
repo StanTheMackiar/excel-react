@@ -1,5 +1,3 @@
-import { RefObject } from 'react';
-
 export interface ICell {
   positionY: number;
   id: string;
@@ -16,12 +14,3 @@ export type ICellSpecial = {
 };
 
 export type ISheet = ICell[][];
-
-export interface CellOnKeyDownParams {
-  event: KeyboardEvent;
-  cell: ICell;
-  inputRef: RefObject<HTMLInputElement>;
-  inputFocused: boolean;
-  saveChanges: VoidFunction;
-  setInternalInput: (value: string) => void;
-}

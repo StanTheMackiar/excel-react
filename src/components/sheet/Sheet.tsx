@@ -2,27 +2,29 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useShallow } from 'zustand/react/shallow';
 import {
+  computeCell,
   getCellFromMouseEvent,
   getSheetLetters,
   getSheetNumbers,
 } from '../../helpers/sheet/sheet.helper';
-import { useSheetStore } from '../../stores/useSheetStore';
-import {
-  CellOnKeyDownParams,
-  ICell,
-  ICellSpecial,
-} from '../../types/sheet/cell/cell.types';
+import { Direction, useSheetStore } from '../../stores/useSheetStore';
+import { ICell, ICellSpecial } from '../../types/sheet/cell/cell.types';
 
 import clsx from 'clsx';
-import { isInputKey, isSpecialKey } from '../../helpers/keys/keys.helpers';
-import { ActionByKeyPressedParams } from '../../types/sheet/sheet.types';
+import KeyEnum from '../../enum/key.enum';
+import {
+  isArrowKey,
+  isInputKey,
+  isSpecialKey,
+} from '../../helpers/keys/keys.helpers';
 import './Sheet.css';
 import { Cell } from './cells/Cell';
 
 export const Sheet: FC = () => {
   const [
     addCellsToSelection,
-    focusedCellInput,
+    focusedCellInputRef,
+    remarkedCellInputRef,
     isSelecting,
     moveRemarkedCell,
     remarkedCell,
@@ -34,12 +36,18 @@ export const Sheet: FC = () => {
     sheet,
     unmarkSelectedCells,
     updateCells,
+    updateCell,
     pressedKeys,
-    selectedCellsState,
+    addPressedKey,
+    removePressedKey,
+    moveLatestSelectedCell,
+    selectCells,
+    setLatestSelectedCell,
   ] = useSheetStore(
     useShallow((state) => [
       state.addCellsToSelection,
-      state.focusedCellInput,
+      state.focusedCellInputRef,
+      state.remarkedCellInputRef,
       state.isSelecting,
       state.moveRemarkedCell,
       state.remarkedCell,
@@ -51,8 +59,13 @@ export const Sheet: FC = () => {
       state.sheet,
       state.unmarkSelectedCells,
       state.updateCells,
+      state.updateCell,
       state.pressedKeys,
-      state.selectedCellsState,
+      state.addPressedKey,
+      state.removePressedKey,
+      state.moveLatestSelectedCell,
+      state.selectCells,
+      state.setLatestSelectedCell,
     ])
   );
 
@@ -64,36 +77,19 @@ export const Sheet: FC = () => {
     null
   );
 
-  const saveSheetFromCell = (cell: ICell, value: string) => {
+  const focusedElement = focusedCellInputRef?.current;
+  const remarkedElement = remarkedCellInputRef?.current;
+
+  const saveSheetFromCell = (cell: ICell, newValue: string) => {
     const newSheet = sheet.map((row) =>
       row.map((sheetCell) => {
-        if (sheetCell.id === cell.id) {
-          const cellHasFunction = value.startsWith('=');
+        const isTargetCell = sheetCell.id === cell.id;
 
-          let computedValue = value;
-
-          if (cellHasFunction) {
-            try {
-              const result = eval(value.substring(1));
-
-              const avaiableTypes = ['string', 'number'];
-              const resultType = typeof result;
-
-              if (avaiableTypes.includes(resultType)) computedValue = result;
-              else throw new Error();
-            } catch (error) {
-              console.error(error);
-
-              computedValue = '#ERROR';
-            }
-          }
-
-          return {
-            ...sheetCell,
-            value,
-            computedValue,
-          };
-        } else return sheetCell;
+        return computeCell(
+          sheetCell,
+          sheet,
+          isTargetCell ? newValue : undefined
+        );
       })
     );
 
@@ -106,6 +102,7 @@ export const Sheet: FC = () => {
     const cell = getCellFromMouseEvent(e, sheet);
 
     if (!cell) {
+      setLatestSelectedCell(null);
       setRemarkedCell(null);
       unmarkSelectedCells();
 
@@ -124,6 +121,7 @@ export const Sheet: FC = () => {
       setIsSelecting(true);
       setRemarkedCell(cell);
       setSelectedCells([cell]);
+      setLatestSelectedCell(null);
       setStartSelectionCell(cell);
 
       return;
@@ -135,43 +133,14 @@ export const Sheet: FC = () => {
   const handleMouseMove = (e: MouseEvent) => {
     if (!isSelecting || !startSelectionCell) return;
 
-    const startCell = startSelectionCell;
     const currentCell = getCellFromMouseEvent(e, sheet);
 
-    if (!currentCell) return;
-
-    const newSelectedCells: ICell[] = [];
-
-    const startY = Math.min(startCell.positionY, currentCell.positionY);
-    const endY = Math.max(startCell.positionY, currentCell.positionY);
-    const startX = Math.min(startCell.positionX, currentCell.positionX);
-    const endX = Math.max(startCell.positionX, currentCell.positionX);
-
-    for (let y = startY; y <= endY; y++) {
-      for (let x = startX; x <= endX; x++) {
-        const cell = sheet[y][x];
-        newSelectedCells.push(cell);
-      }
-    }
-
-    setSelectedCells(newSelectedCells);
+    if (currentCell) selectCells(startSelectionCell, currentCell);
   };
 
   const handleMouseUp = () => {
     setIsSelecting(false);
   };
-
-  useEffect(() => {
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('mousedown', handleMouseDown);
-    };
-  }, [handleMouseMove, handleMouseUp, handleMouseDown]);
 
   const sheetLetters = useMemo(() => getSheetLetters(colsQty), [colsQty]);
   const sheetNumbers = useMemo(() => getSheetNumbers(rowsQty), [rowsQty]);
@@ -220,36 +189,32 @@ export const Sheet: FC = () => {
     [sheet, selectedCells]
   );
 
-  const onPressEnter = ({
-    focus,
-    saveChanges,
-    inputRef,
-  }: ActionByKeyPressedParams) => {
-    if (focus) {
-      saveChanges();
+  const onPressEnter = () => {
+    if (focusedElement) {
       moveRemarkedCell('down');
-    } else {
-      inputRef.current?.focus();
+
+      return;
+    } else if (remarkedElement) {
+      remarkedElement.focus();
     }
   };
 
-  const onPressTab = ({ saveChanges }: ActionByKeyPressedParams) => {
-    saveChanges();
+  const onPressTab = () => {
     moveRemarkedCell('right');
   };
 
-  const onPressShiftPlusTab = ({ saveChanges }: ActionByKeyPressedParams) => {
-    saveChanges();
+  const onPressShiftPlusTab = () => {
     moveRemarkedCell('left');
   };
 
-  const onPressBackspace = ({
-    focus,
-    setInternalInput,
-  }: ActionByKeyPressedParams) => {
-    if (!focus) {
-      setInternalInput('');
+  const onPressShiftPlusArrow = (direction: Direction) => {
+    if (!focusedElement) {
+      moveLatestSelectedCell(direction);
+    }
+  };
 
+  const onPressBackspace = () => {
+    if (!focusedElement) {
       const selectedCellsCleaned: ICell[] = selectedCells.map(
         (selectedCell) => ({ ...selectedCell, value: '', computedValue: '' })
       );
@@ -258,61 +223,108 @@ export const Sheet: FC = () => {
     }
   };
 
-  const getActionByKeyPressed = (
-    params: ActionByKeyPressedParams
-  ): VoidFunction | undefined => {
-    const keyMap: Record<string, VoidFunction | undefined> = {
-      Enter: () => onPressEnter(params),
-      Backspace: () => onPressBackspace(params),
-      Delete: () => onPressBackspace(params),
-      Tab: () => onPressTab(params),
-      TabPlusShift: () => onPressShiftPlusTab(params),
-      ArrowRight: () => moveRemarkedCell('right'),
-      ArrowLeft: () => moveRemarkedCell('left'),
-      ArrowDown: () => moveRemarkedCell('down'),
-      ArrowUp: () => moveRemarkedCell('up'),
-    };
-
-    return keyMap[params.keyCode];
-  };
-
-  const onPressKeyFromCell = ({
-    cell,
-    event,
-    inputFocused,
-    saveChanges,
-    inputRef,
-    setInternalInput,
-  }: CellOnKeyDownParams) => {
-    if (!inputRef.current)
-      throw new Error(`No se encontró la ref del input ${cell.id}`);
-
-    const keyCode = event.key;
-
-    const specialKeyPressed = isSpecialKey(keyCode);
-    const inputKeyPressed = isInputKey(keyCode);
-
-    if (specialKeyPressed) event.preventDefault();
-
-    const keyAction = getActionByKeyPressed({
-      cell,
-      keyCode,
-      inputRef,
-      focus: inputFocused,
-      saveChanges,
-      setInternalInput,
-    });
-
-    if (keyAction) return keyAction();
-
-    if (inputKeyPressed && !inputFocused) {
-      setInternalInput('');
-      inputRef.current.focus();
+  const onPressArrow = (direction: Direction) => {
+    if (!focusedElement) {
+      moveRemarkedCell(direction);
     }
   };
 
+  const getActionByKeyPressed = (): VoidFunction | undefined => {
+    const pressedKeysValue = pressedKeys
+      .map((key) => key.toUpperCase())
+      .join('plus');
+
+    const keyMap: Record<string, VoidFunction | undefined> = {
+      ENTER: () => onPressEnter(),
+      BACKSPACE: () => onPressBackspace(),
+      DELETE: () => onPressBackspace(),
+      TAB: () => onPressTab(),
+      SHIFTplusTAB: () => onPressShiftPlusTab(),
+      ARROWRIGHT: () => onPressArrow('right'),
+      ARROWLEFT: () => onPressArrow('left'),
+      ARROWDOWN: () => onPressArrow('down'),
+      ARROWUP: () => onPressArrow('up'),
+
+      SHIFTplusARROWUP: () => onPressShiftPlusArrow('up'),
+      SHIFTplusARROWDOWN: () => onPressShiftPlusArrow('down'),
+      SHIFTplusARROWLEFT: () => onPressShiftPlusArrow('left'),
+      SHIFTplusARROWRIGHT: () => onPressShiftPlusArrow('right'),
+    };
+
+    return keyMap[pressedKeysValue];
+  };
+
+  const handlePressedKeys = () => {
+    if (!pressedKeys.length) return;
+
+    const keyAction = getActionByKeyPressed();
+
+    if (keyAction) return keyAction();
+
+    const inputKeyPressed = pressedKeys.find((key) => isInputKey(key));
+
+    const updateRemarkedCell =
+      inputKeyPressed &&
+      !focusedElement &&
+      typeof remarkedElement?.value !== 'undefined';
+
+    if (updateRemarkedCell && remarkedCell) {
+      updateCell(remarkedCell?.id, {
+        value: inputKeyPressed,
+        computedValue: inputKeyPressed,
+      });
+
+      setTimeout(() => remarkedElement.focus(), 50);
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    const keyCode = e.key;
+
+    const isArrow = isArrowKey(keyCode);
+    const isSpecial = isSpecialKey(keyCode);
+
+    const allowDefaultEvent = !isSpecial || (focusedElement && isArrow);
+
+    if (!allowDefaultEvent) e.preventDefault();
+
+    addPressedKey(keyCode as KeyEnum);
+  };
+
+  const handleKeyUp = (e: KeyboardEvent) => {
+    const keyCode = e.key;
+
+    removePressedKey(keyCode as KeyEnum);
+  };
+
+  useEffect(() => {
+    handlePressedKeys();
+  }, [pressedKeys]);
+
+  useEffect(() => {
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [
+    handleMouseMove,
+    handleMouseUp,
+    handleMouseDown,
+    handleKeyUp,
+    handleKeyDown,
+  ]);
+
   return (
-    <table className={clsx('sheet', { 'enable-select': !!focusedCellInput })}>
+    <table className={clsx('sheet', { 'enable-select': !!focusedElement })}>
       <thead className="sheet-head">
         <tr className="sheet-row">
           <th className="sheet-header-cell"></th>
@@ -351,7 +363,6 @@ export const Sheet: FC = () => {
               {row.map((cell) => {
                 return (
                   <Cell
-                    onPressKeyFromCell={onPressKeyFromCell}
                     key={cell.id}
                     cell={cell}
                     saveChanges={saveSheetFromCell}

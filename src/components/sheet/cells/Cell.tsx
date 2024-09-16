@@ -1,37 +1,30 @@
 import clsx from 'clsx';
 import { ChangeEvent, FC, useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import KeyEnum from '../../../enum/key.enum';
 import { useSheetStore } from '../../../stores/useSheetStore';
-import {
-  CellOnKeyDownParams,
-  ICell,
-} from '../../../types/sheet/cell/cell.types';
+import { ICell } from '../../../types/sheet/cell/cell.types';
 
 interface Props {
   cell: ICell;
   saveChanges: (cell: ICell, value: string) => void;
-  onPressKeyFromCell: (params: CellOnKeyDownParams) => void;
 }
 
-export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
+export const Cell: FC<Props> = ({ cell, saveChanges }) => {
   const [
     selectedCells,
     addSelectedCellState,
     remarkedCell,
-    setFocusedCellInput,
-    addPressedKey,
-    removePressedKey,
+    setFocusedCellRef,
     removeSelectedCellState,
+    setRemarkedCellRef,
   ] = useSheetStore(
     useShallow((state) => [
       state.selectedCells,
       state.addSelectedCellState,
       state.remarkedCell,
-      state.setFocusedCellInput,
-      state.addPressedKey,
-      state.removePressedKey,
+      state.setFocusedCellInputRef,
       state.removeSelectedCellState,
+      state.setRemarkedCellInputRef,
     ])
   );
 
@@ -45,6 +38,16 @@ export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
     [selectedCells, cell]
   );
 
+  const { isRemarked, isShadowed } = useMemo(() => {
+    const isShadowed = selectedCells.length > 1 && isSelected;
+    const isRemarked = remarkedCell?.id === cell.id;
+
+    return {
+      isShadowed,
+      isRemarked,
+    };
+  }, [remarkedCell, isSelected, selectedCells, cell]);
+
   useEffect(() => {
     if (isSelected) {
       addSelectedCellState({
@@ -57,68 +60,24 @@ export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
     }
   }, [isSelected, setValue, value]);
 
+  useEffect(() => {
+    if (isRemarked) setRemarkedCellRef(inputRef);
+  }, [isRemarked, inputRef]);
+
   const handleBlur = () => {
     inputRef.current?.blur();
 
-    setFocusedCellInput(null);
+    setFocusedCellRef(null);
     setInputFocused(false);
-    if (value !== cell.value) {
-      saveChanges(cell, value);
-    }
+    saveChanges(cell, value);
   };
-
-  const { isRemarked, isShadow } = useMemo(() => {
-    const isShadow = selectedCells.length > 1 && isSelected;
-    const isRemarked = remarkedCell?.id === cell.id;
-
-    return {
-      isShadow,
-      isRemarked,
-    };
-  }, [remarkedCell, isSelected, selectedCells, cell]);
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    addPressedKey(e.key as KeyEnum);
-
-    onPressKeyFromCell({
-      event: e,
-      cell,
-      inputFocused,
-      inputRef,
-      saveChanges: handleBlur,
-      setInternalInput: setValue,
-    });
-  };
-
-  const handleKeyUp = (e: KeyboardEvent) => {
-    removePressedKey(e.key as KeyEnum);
-  };
-
-  useEffect(() => {
-    const disableEvent = !inputFocused && !isRemarked;
-
-    if (disableEvent) {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('keyup', handleKeyUp);
-
-      return;
-    }
-
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [inputFocused, isRemarked, handleKeyDown]);
 
   const onDoubleClick = () => {
     inputRef.current?.focus();
   };
 
   const onFocus = () => {
-    setFocusedCellInput(inputRef);
+    setFocusedCellRef(inputRef);
     setInputFocused(true);
   };
 
@@ -140,7 +99,7 @@ export const Cell: FC<Props> = ({ cell, saveChanges, onPressKeyFromCell }) => {
         id={`${cell.id}-cellinput`}
         onChange={onChange}
         className={clsx('sheet-input', {
-          'cell-shadow': isShadow,
+          'cell-shadow': isShadowed,
           'cell-marked': isRemarked,
           'disable-pointer-events': !inputFocused,
         })}

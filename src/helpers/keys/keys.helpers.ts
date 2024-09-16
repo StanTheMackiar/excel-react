@@ -1,3 +1,5 @@
+const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+
 export function isSpecialKey(key: string): boolean {
   const specialKeys = new Set([
     'Alt',
@@ -7,10 +9,6 @@ export function isSpecialKey(key: string): boolean {
     'Meta',
     'CapsLock',
     'Escape',
-    'ArrowUp',
-    'ArrowDown',
-    'ArrowLeft',
-    'ArrowRight',
     'Home',
     'End',
     'PageUp',
@@ -41,9 +39,12 @@ export function isSpecialKey(key: string): boolean {
   return specialKeys.has(key);
 }
 
+export const isArrowKey = (key: string) => {
+  return arrowKeys.includes(key);
+};
+
 export function isInputKey(key: string): boolean {
-  // Regex para teclas imprimibles y caracteres de control de texto (excluyendo 'Tab')
-  const inputKeyRegex = /^[ -~]$|^Backspace$|^Enter$/;
+  const inputKeyRegex = /^[ -~]$|^[=\/()\%$·"!@#~€¬|]+$|^Backspace$|^Enter$/;
 
   return inputKeyRegex.test(key);
 }
