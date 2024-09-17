@@ -48,3 +48,7 @@
   background-color: rgb(193, 214, 224);
   outline: 2px solid rgb(149, 163, 194);
 }
+
+.cell-function-mode {
+  color: blue;
+}

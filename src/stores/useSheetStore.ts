@@ -1,9 +1,9 @@
 import { RefObject } from 'react';
 import { create } from 'zustand';
 import KeyEnum from '../enum/key.enum';
+import { computeCell } from '../helpers/sheet/cell/cell.helper';
 import {
   adjustSheetSize,
-  computeCell,
   getCellByDirection,
   getSelectedCells,
   getSheet,
@@ -27,6 +27,7 @@ interface State {
   remarkedCell: ICell | null;
   remarkedCellInputRef: RefObject<HTMLInputElement> | null;
   focusedCellInputRef: RefObject<HTMLInputElement> | null;
+  functionMode: boolean;
   selectedCells: ICell[];
   latestSelectedCell: ICell | null;
   selectedCellsState: SelectedCellState[];
@@ -43,12 +44,14 @@ interface Actions {
   setRemarkedCellInputRef: (value: RefObject<HTMLInputElement> | null) => void;
   setIsSelecting: (value: boolean) => void;
   setRemarkedCell: (cell: ICell | null) => void;
+  setPressedKeys: (keys: KeyEnum[]) => void;
   setSelectedCells: (cells: ICell[]) => void;
   setSelectedCellsState: (cells: SelectedCellState[]) => void;
   addSelectedCellState: (cell: SelectedCellState) => void;
   removeSelectedCellState: (cellId: string) => void;
   moveLatestSelectedCell: (direction: Direction) => void;
   recomputeSheet: () => void;
+  setFunctionMode: (value: boolean) => void;
   setLatestSelectedCell: (cell: ICell | null) => void;
   selectCells: (startCell: ICell, currentCell: ICell) => void;
   unmarkSelectedCells: VoidFunction;
@@ -66,6 +69,7 @@ export const defaultState: State = {
   pressedKeys: [],
   remarkedCell: null,
   remarkedCellInputRef: null,
+  functionMode: false,
   rowsQty: initialRowsQty,
   selectedCells: [],
   selectedCellsState: [],
@@ -86,11 +90,15 @@ export const useSheetStore = create<State & Actions>((set) => ({
       pressedKeys: pressedKeys.filter((stateKey) => stateKey !== key),
     })),
 
+  setFunctionMode: (value) => set({ functionMode: value }),
+
   setLatestSelectedCell: (cell) => set({ latestSelectedCell: cell }),
 
   setFocusedCellInputRef: (value) => set({ focusedCellInputRef: value }),
 
   setRemarkedCellInputRef: (value) => set({ remarkedCellInputRef: value }),
+
+  setPressedKeys: (pressedKeys) => set({ pressedKeys }),
 
   recomputeSheet: () =>
     set(({ sheet }) => {
@@ -221,15 +229,25 @@ export const useSheetStore = create<State & Actions>((set) => ({
 
   setSelectedCells: (cells) => set({ selectedCells: [...new Set(cells)] }),
 
-  addSelectedCellState: (cell) =>
+  addSelectedCellState: (newCellState) =>
     set((state) => {
-      const newSelectedCellState: SelectedCellState[] =
+      let newSelectedCellState: SelectedCellState[] =
         state.selectedCellsState.slice();
 
-      newSelectedCellState.push(cell);
+      const stateFinded = state.selectedCellsState.find(
+        (state) => state.cellId === newCellState.cellId
+      );
+
+      if (!stateFinded) {
+        newSelectedCellState.push(newCellState);
+      } else {
+        newSelectedCellState = newSelectedCellState.map((state) =>
+          state.cellId === newCellState.cellId ? newCellState : state
+        );
+      }
 
       return {
-        selectedCellsState: [...new Set(newSelectedCellState)],
+        selectedCellsState: newSelectedCellState,
       };
     }),
 

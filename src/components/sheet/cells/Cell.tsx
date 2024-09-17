@@ -1,5 +1,13 @@
 import clsx from 'clsx';
-import { ChangeEvent, FC, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ChangeEvent,
+  FC,
+  FocusEventHandler,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSheetStore } from '../../../stores/useSheetStore';
 import { ICell } from '../../../types/sheet/cell/cell.types';
@@ -17,6 +25,8 @@ export const Cell: FC<Props> = ({ cell, saveChanges }) => {
     setFocusedCellRef,
     removeSelectedCellState,
     setRemarkedCellRef,
+    functionMode,
+    setFunctionMode,
   ] = useSheetStore(
     useShallow((state) => [
       state.selectedCells,
@@ -25,6 +35,8 @@ export const Cell: FC<Props> = ({ cell, saveChanges }) => {
       state.setFocusedCellInputRef,
       state.removeSelectedCellState,
       state.setRemarkedCellInputRef,
+      state.functionMode,
+      state.setFunctionMode,
     ])
   );
 
@@ -32,6 +44,8 @@ export const Cell: FC<Props> = ({ cell, saveChanges }) => {
   const [inputFocused, setInputFocused] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isFunctionMode = functionMode && inputFocused;
 
   const isSelected = useMemo(
     () => selectedCells.some((selectedCell) => selectedCell.id === cell.id),
@@ -49,6 +63,16 @@ export const Cell: FC<Props> = ({ cell, saveChanges }) => {
   }, [remarkedCell, isSelected, selectedCells, cell]);
 
   useEffect(() => {
+    const enableFuncMode = value.startsWith('=') && inputFocused;
+
+    setFunctionMode(enableFuncMode);
+
+    return () => {
+      setFunctionMode(false);
+    };
+  }, [value, inputFocused]);
+
+  useEffect(() => {
     if (isSelected) {
       addSelectedCellState({
         cellId: cell.id,
@@ -64,11 +88,12 @@ export const Cell: FC<Props> = ({ cell, saveChanges }) => {
     if (isRemarked) setRemarkedCellRef(inputRef);
   }, [isRemarked, inputRef]);
 
-  const handleBlur = () => {
+  const handleBlur: FocusEventHandler<HTMLInputElement> = () => {
     inputRef.current?.blur();
 
     setFocusedCellRef(null);
     setInputFocused(false);
+    setFunctionMode(false);
     saveChanges(cell, value);
   };
 
@@ -101,6 +126,7 @@ export const Cell: FC<Props> = ({ cell, saveChanges }) => {
         className={clsx('sheet-input', {
           'cell-shadow': isShadowed,
           'cell-marked': isRemarked,
+          'cell-function-mode': isFunctionMode,
           'disable-pointer-events': !inputFocused,
         })}
         type="text"
