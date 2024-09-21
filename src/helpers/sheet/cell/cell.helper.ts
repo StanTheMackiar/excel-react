@@ -1,21 +1,42 @@
-import { ICell, ISheet } from '../../../types/sheet/cell/cell.types';
+import {
+  CellFound,
+  ICell,
+  ISheet,
+  ParseExpressionReturn,
+} from '../../../types/sheet/cell/cell.types';
 import { CELL_REGEX } from '../../constants/regex.constans';
+import { isValidExcelExpression } from './is-valid-exp-helper';
 
 export const parseExpression = (
-  exp: string,
-  sheet: ISheet,
-  isMathExp = false
-) => {
-  const result = exp.replace(CELL_REGEX, (_, col, row) => {
-    const colIndex = col.charCodeAt(0) - 'A'.charCodeAt(0);
+  value: string,
+  sheet: ISheet
+): ParseExpressionReturn => {
+  const cellHasFunction = value.startsWith('=');
 
-    const rowIndex = parseInt(row, 10) - 1;
+  const exp = cellHasFunction ? value.substring(1) : value;
+  const isMathExp = isMathExpression(value);
+
+  const cellsFound: CellFound[] = [];
+
+  const parsedExp = exp.replace(CELL_REGEX, (_, col, row) => {
+    const id = `${col}${row}`;
+
+    const x = col.charCodeAt(0) - 'A'.charCodeAt(0);
+    const y = parseInt(row, 10) - 1;
+
+    const computedValue = sheet[y][x].computedValue;
+
+    cellsFound.push({ id, value: computedValue, y: y, x: x });
+
+    const numberValue = Number(computedValue);
+
+    const isString = isNaN(numberValue);
 
     // Devolver el valor de la celda desde la matriz
-    return sheet[rowIndex][colIndex].computedValue || (isMathExp ? '0' : '');
+    return String(isString ? `'${computedValue}'` : numberValue);
   });
 
-  return result;
+  return { isMathExp, parsedExp, cellsFound };
 };
 
 export const parseRange = (range: string) => {
@@ -31,20 +52,27 @@ export const computeCell = (
   const value = newValue ?? cell.value;
   const cellHasFunction = value.startsWith('=');
 
+  if (!cellHasFunction) {
+    return {
+      ...cell,
+      value,
+      computedValue: value,
+    };
+  }
+
   let computedValue = cellHasFunction ? value.substring(1) : value;
 
   try {
-    const isMathExp = isMathExpression(computedValue);
+    const isValid = isValidExcelExpression(computedValue);
 
-    const parsedExp = parseExpression(computedValue, sheet, isMathExp);
+    if (!isValid) throw new Error();
 
-    const finalExp = isMathExp ? eval(parsedExp) : parsedExp;
+    const { parsedExp } = parseExpression(computedValue, sheet);
+    console.log({ parsedExp });
 
-    const avaiableTypes = ['string', 'number'];
-    const resultType = typeof finalExp;
+    const finalExp = eval(parsedExp);
 
-    if (avaiableTypes.includes(resultType)) computedValue = finalExp;
-    else throw new Error();
+    computedValue = finalExp;
   } catch (error) {
     console.error(error);
 

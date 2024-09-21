@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { parseExpression } from '../helpers/sheet/cell/cell.helper';
+import { isValidExcelExpression } from '../helpers/sheet/cell/is-valid-exp-helper';
 import { getCellFromMouseEvent } from '../helpers/sheet/sheet.helper';
 import { useSheetStore } from '../stores/useSheetStore';
 import { ICell } from '../types/sheet/cell/cell.types';
@@ -69,9 +71,23 @@ export const useMouseEvents = () => {
 
       selectedCellsState.forEach((state) => {
         if (state.cellId === remarkedCell.id) {
-          const newValue = state.value + cell.id;
+          let newValue = state.value + cell.id;
 
-          state.setValue(newValue);
+          const isValidExp = isValidExcelExpression(state.value);
+
+          if (!isValidExp) {
+            state.setValue(newValue);
+          } else {
+            const { cellsFound } = parseExpression(state.value, sheet);
+
+            const latestCellFound = cellsFound[cellsFound.length - 1];
+
+            if (latestCellFound) {
+              newValue = state.value.replace(latestCellFound.id, cell.id);
+
+              state.setValue(newValue);
+            }
+          }
         }
       });
 

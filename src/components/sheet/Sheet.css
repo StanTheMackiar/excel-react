@@ -29,6 +29,7 @@
 
 .sheet-cell {
   width: fit-content;
+  position: relative;
 }
 
 .sheet-input {
@@ -51,4 +52,27 @@
 
 .cell-function-mode {
   color: blue;
+}
+
+.cell-focused {
+  box-shadow: 0 0 0 2px rgb(100, 151, 239); /* color y tamaño del outline */
+  position: relative; /* para manejar el z-index */
+  z-index: 1; /* asegúrate de que esté encima */
+}
+
+.function-mode {
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px;
+  height: 36px;
+  z-index: 2;
+  background-color: blue;
+
+  span {
+    color: white;
+  }
 }

@@ -8,16 +8,14 @@ import {
   getSelectedCells,
   getSheet,
 } from '../helpers/sheet/sheet.helper';
-import { ICell } from '../types/sheet/cell/cell.types';
+import {
+  FunctionModeCell,
+  ICell,
+  SelectedCellState,
+} from '../types/sheet/cell/cell.types';
 
 const initialRowsQty = 16;
 const initialColsQty = 8;
-
-export type SelectedCellState = {
-  cellId: string;
-  value: string;
-  setValue: (value: string) => void;
-};
 
 export type Direction = 'left' | 'up' | 'down' | 'right';
 interface State {
@@ -31,6 +29,8 @@ interface State {
   selectedCells: ICell[];
   latestSelectedCell: ICell | null;
   selectedCellsState: SelectedCellState[];
+  functionModeCells: FunctionModeCell[];
+
   sheet: ICell[][];
   pressedKeys: KeyEnum[];
 }
@@ -47,6 +47,7 @@ interface Actions {
   setPressedKeys: (keys: KeyEnum[]) => void;
   setSelectedCells: (cells: ICell[]) => void;
   setSelectedCellsState: (cells: SelectedCellState[]) => void;
+  setFunctionModeCells: (cells: FunctionModeCell[]) => void;
   addSelectedCellState: (cell: SelectedCellState) => void;
   removeSelectedCellState: (cellId: string) => void;
   moveLatestSelectedCell: (direction: Direction) => void;
@@ -69,6 +70,7 @@ export const defaultState: State = {
   pressedKeys: [],
   remarkedCell: null,
   remarkedCellInputRef: null,
+  functionModeCells: [],
   functionMode: false,
   rowsQty: initialRowsQty,
   selectedCells: [],
@@ -100,6 +102,8 @@ export const useSheetStore = create<State & Actions>((set) => ({
 
   setPressedKeys: (pressedKeys) => set({ pressedKeys }),
 
+  setFunctionModeCells: (cells) => set({ functionModeCells: cells }),
+
   recomputeSheet: () =>
     set(({ sheet }) => {
       const newSheet = sheet.map((row) =>
@@ -127,7 +131,6 @@ export const useSheetStore = create<State & Actions>((set) => ({
             );
 
             if (cellState && typeof cellFinded.value !== 'undefined') {
-              console.log({ cellState });
               cellState.setValue(cellFinded.value);
             }
 

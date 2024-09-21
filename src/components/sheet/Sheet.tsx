@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useCallback, useEffect, useMemo } from 'react';
 
 import { useShallow } from 'zustand/react/shallow';
 import {
@@ -6,50 +6,83 @@ import {
   getSheetNumbers,
 } from '../../helpers/sheet/sheet.helper';
 import { useSheetStore } from '../../stores/useSheetStore';
-import { ICell, ICellSpecial } from '../../types/sheet/cell/cell.types';
+import {
+  FunctionModeCell,
+  ICell,
+  ICellSpecial,
+} from '../../types/sheet/cell/cell.types';
 
 import clsx from 'clsx';
-import { computeCell } from '../../helpers/sheet/cell/cell.helper';
+import { getColorFromSequence } from '../../helpers/color.helper';
+import {
+  computeCell,
+  parseExpression,
+} from '../../helpers/sheet/cell/cell.helper';
 import './Sheet.css';
 import { Cell } from './cells/Cell';
 
 export const Sheet: FC = () => {
   const [
+    colsQty,
     focusedCellInputRef,
+    functionMode,
+    rowsQty,
     selectedCells,
     setSelectedCells,
+    setFunctionModeCells,
     setSheet,
     sheet,
+    recomputeSheet,
   ] = useSheetStore(
     useShallow((state) => [
+      state.colsQty,
       state.focusedCellInputRef,
+      state.functionMode,
+      state.rowsQty,
       state.selectedCells,
       state.setSelectedCells,
+      state.setFunctionModeCells,
       state.setSheet,
       state.sheet,
+      state.recomputeSheet,
     ])
-  );
-
-  const [rowsQty, colsQty] = useSheetStore(
-    useShallow((state) => [state.rowsQty, state.colsQty])
   );
 
   const focusedElement = focusedCellInputRef?.current;
 
-  const saveSheetFromCell = (cell: ICell, newValue: string) => {
-    const newSheet = sheet.map((row) =>
-      row.map((sheetCell) => {
-        const isTargetCell = sheetCell.id === cell.id;
+  useEffect(() => {
+    const focusedValue = focusedElement?.value?.substring(1);
 
-        return computeCell(
-          sheetCell,
-          sheet,
-          isTargetCell ? newValue : undefined
-        );
+    if (!focusedValue || !functionMode) {
+      setFunctionModeCells([]);
+
+      return;
+    }
+
+    const { cellsFound } = parseExpression(focusedValue, sheet);
+
+    const functionModeCells: FunctionModeCell[] = cellsFound.map(
+      ({ id }, i) => ({
+        id,
+        color: getColorFromSequence(i),
       })
     );
 
-    setSheet({ sheet: newSheet });
+    setFunctionModeCells(functionModeCells);
+  }, [focusedCellInputRef?.current?.value, functionMode]);
+
+  const saveSheetFromCell = (cell: ICell, newValue: string) => {
+    const currentSheet = sheet.slice();
+
+    currentSheet[cell.positionY][cell.positionX] = computeCell(
+      cell,
+      sheet,
+      newValue
+    );
+
+    setSheet({ sheet: currentSheet });
+
+    setTimeout(recomputeSheet, 50);
   };
 
   const sheetLetters = useMemo(() => getSheetLetters(colsQty), [colsQty]);

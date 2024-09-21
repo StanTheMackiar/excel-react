@@ -60,3 +60,11 @@ main {
 .disable-pointer-events {
   pointer-events: none;
 }
+
+.d-none {
+  display: none;
+}
+
+.d-flex {
+  display: flex;
+}

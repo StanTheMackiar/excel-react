@@ -27,17 +27,25 @@ export const Cell: FC<Props> = ({ cell, saveChanges }) => {
     setRemarkedCellRef,
     functionMode,
     setFunctionMode,
+    functionModeCell,
   ] = useSheetStore(
-    useShallow((state) => [
-      state.selectedCells,
-      state.addSelectedCellState,
-      state.remarkedCell,
-      state.setFocusedCellInputRef,
-      state.removeSelectedCellState,
-      state.setRemarkedCellInputRef,
-      state.functionMode,
-      state.setFunctionMode,
-    ])
+    useShallow((state) => {
+      const cellInFunction = state.functionModeCells.find(
+        (funcCell) => funcCell.id === cell.id
+      );
+
+      return [
+        state.selectedCells,
+        state.addSelectedCellState,
+        state.remarkedCell,
+        state.setFocusedCellInputRef,
+        state.removeSelectedCellState,
+        state.setRemarkedCellInputRef,
+        state.functionMode,
+        state.setFunctionMode,
+        cellInFunction,
+      ];
+    })
   );
 
   const [value, setValue] = useState(cell.value);
@@ -117,6 +125,12 @@ export const Cell: FC<Props> = ({ cell, saveChanges }) => {
       className="sheet-cell"
       key={cell.id}
     >
+      <div
+        className={clsx('function-mode', isFunctionMode ? 'd-flex' : 'd-none')}
+      >
+        <span>?</span>
+      </div>
+
       <input
         onBlur={handleBlur}
         onFocus={onFocus}
@@ -127,9 +141,20 @@ export const Cell: FC<Props> = ({ cell, saveChanges }) => {
           'cell-shadow': isShadowed,
           'cell-marked': isRemarked,
           'cell-function-mode': isFunctionMode,
+          'cell-focused': inputFocused,
           'disable-pointer-events': !inputFocused,
         })}
         type="text"
+        style={{
+          ...(functionModeCell
+            ? {
+                border: functionModeCell
+                  ? `1px ${functionModeCell.color} dashed`
+                  : undefined,
+                backgroundColor: `${functionModeCell.color}05`,
+              }
+            : {}),
+        }}
         value={inputFocused ? value : cell.computedValue}
       />
     </td>
